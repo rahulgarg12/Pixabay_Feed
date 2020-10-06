@@ -14,6 +14,7 @@ final class FeedViewController: UIViewController {
         didSet {
             tableView.separatorStyle = .none
             tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 20, right: 0)
+            tableView.tableFooterView = UIView()
             
             tableView.register(cellType: FeedTableCell.self)
             

@@ -14,12 +14,15 @@ final class SearchViewController: UIViewController {
         didSet {
             tableView.separatorStyle = .none
             tableView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 20, right: 0)
+            tableView.tableFooterView = UIView()
             
             tableView.register(cellType: FeedTableCell.self)
             
             tableView.delegate = self
             tableView.dataSource = self
             tableView.prefetchDataSource = self
+            
+            tableView.keyboardDismissMode = .onDrag
         }
     }
     
@@ -67,7 +70,7 @@ final class SearchViewController: UIViewController {
         NotificationCenter.default
             .publisher(for: UISearchTextField.textDidChangeNotification, object: searchController.searchBar.searchTextField)
             .map( { ($0.object as? UITextField)?.text ?? "" } )
-            .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
+            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] str in
                 guard !str.isEmpty else { return }
                 
@@ -168,8 +171,11 @@ extension SearchViewController: UITableViewDelegate, UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-        guard viewModel.isFetchMore(at: indexPath) else { return }
-        fetchData()
+        guard viewModel.isFetchMore(at: indexPath),
+              let string = searchController.searchBar.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !string.isEmpty else { return }
+        
+        fetchData(query: string, isRemovePrevious: false)
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -190,9 +196,10 @@ extension SearchViewController: UITableViewDelegate, UITableViewDataSource {
                     
                     cell.setBookmarkStatus(bookmarkStatus)
                     
-                    if model.isBookmark {
+                    if bookmarkStatus {
                         if let _ = DatabaseHandler().getBookmarkModel(for: model.id) {
                             DatabaseHandler().updateBookmarkStatusFor(id: model.id, status: bookmarkStatus)
+                            DatabaseHandler().updateTimestampFor(id: model.id, timestamp: Date().timeIntervalSince1970)
                         } else {
                             DatabaseHandler().saveNewBookmark(model: model)
                         }
